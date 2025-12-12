@@ -149,28 +149,46 @@ class Nic__Controller extends CI_Controller {
                     return "demo.seedtrace.nic.in/inv-apis/billing/createSathiOrder";
             }
         }
-        private function handle_sci_response(array $decodedResponse)
-        {
-            // Check if the main data array exists
-            if (isset($decodedResponse['data']) && is_array($decodedResponse['data'])) {
-                $statusFields = [
-                    "statusCode" => $decodedResponse["statusCode"] ?? "",
-                    "status"     => $decodedResponse["status"] ?? "",
-                    "message"    => $this->normalizeMessage($decodedResponse["message"] ?? "Message Is Empty")
-                ];
         
-                if (isset($decodedResponse['data'][0])) {
-                    // Merge status fields into the first data item
-                    $decodedResponse['data'][0] = array_merge($statusFields, $decodedResponse['data'][0]);
-                } elseif (empty($decodedResponse['data'])) {
-                    // If data array is empty, create a new data item with status/error info
-                    $decRespError = $decodedResponse["error"] ?? "";
-                    $statusFields["status"] = $statusFields["status"] ?: $decRespError; // Use error if status is empty
-                    $decodedResponse['data'][] = $statusFields;
+        private function handle_sci_response(array $decodedResponse){
+  
+                    // Check if the main data key exists
+                if (isset($decodedResponse['data'])) {
+                    
+                    $statusFields = [
+                        "statusCode" => $decodedResponse["statusCode"] ?? "",
+                        "status"     => $decodedResponse["status"] ?? "",
+                        "message"    => $this->normalizeMessage($decodedResponse["message"] ?? "Message Is Empty")
+                    ];
+            
+                    // Case 1: 'data' is an array with at least one element (Your original logic)
+                    if (is_array($decodedResponse['data']) && isset($decodedResponse['data'][0])) {
+                        // Merge status fields into the first data item
+                        $decodedResponse['data'][0] = array_merge($statusFields, $decodedResponse['data'][0]);
+                        
+                    // Case 2: 'data' is an object (or non-empty associative array) 
+                    } elseif (is_array($decodedResponse['data']) && !empty($decodedResponse['data']) && !isset($decodedResponse['data'][0])) {
+                        // Merge status fields into the 'data' object itself
+                        // This handles your example response structure
+                        $decodedResponse['data'] = array_merge($statusFields, $decodedResponse['data']);
+            
+                    // Case 3: 'data' is an empty array or an empty object.
+                    } elseif (is_array($decodedResponse['data']) && empty($decodedResponse['data'])) {
+                        // If data array is empty, create a new data item with status/error info
+                        $decRespError = $decodedResponse["error"] ?? "";
+                        $statusFields["status"] = $statusFields["status"] ?: $decRespError; // Use error if status is empty
+                        $decodedResponse['data'][] = $statusFields;
+                    
+                    // Case 4: 'data' is present but is not an array (e.g., null, string, number - handle defensively)
+                    // If you only expect arrays or objects, you might want to log this as an error.
+                    } else {
+                         // If 'data' is present but doesn't fit the expected structure,
+                         // you could wrap it or just return the original response.
+                    }
                 }
+    
+                return $decodedResponse;
             }
-            return $decodedResponse;
-        }
 	public function normalizeMessage($msg) {
     if (empty($msg)) {
         return "Message Is Empty";
