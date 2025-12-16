@@ -132,4 +132,4 @@
     |
     |	$autoload['model'] = array('first_model' => 'first');
     */
-    $autoload['model'] = array('Employee__Model'=>'Emp__CURD','Customer__Model'=>'Cust__CURD','Home__Model' => 'Home__CURD','Nic__Model'=>'Nic__CURD');
+    $autoload['model'] = array('Employee__Model'=>'Emp__CURD','Customer__Model'=>'Cust__CURD','Home__Model' => 'Home__CURD','Nic__Model'=>'Nic__CURD','Queue_model'=>'Queue_model');

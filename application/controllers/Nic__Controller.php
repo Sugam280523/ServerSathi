@@ -89,26 +89,24 @@ class Nic__Controller extends CI_Controller {
             throw new Exception("Url Data incomplete.. Please Try Again...!", 404);
         }
 
-        // --- 6. Upstream API Call (cURL) (assuming execute_curl is a private helper function) ---
-        $response = $this->execute_curl($url_Data, $finalJson);
+        $job_id = $this->Queue_model->insert_job($apiType, $finalJson);
 
-        // --- 7. Process Upstream Response ---
-        $decodedResponse = json_decode($response, true);
-
-        if ($decodedResponse === null && json_last_error() !== JSON_ERROR_NONE) {
-            $err = json_last_error_msg();
-            log_message('error', "[TALLY_API] JSON decode failed for upstream response: $err | raw len: ".strlen($response));
-            throw new Exception("Invalid upstream JSON: $err", 500);
-        }
-
+       echo json_encode([
+            "statusCode" => "202", // HTTP 202 Accepted
+            "Status"     => "Accepted",
+            "Message"    => "Job successfully queued for processing.",
+            "QueueID"    => $job_id
+        ]);
+        // Stop execution to send the fast response
+        return;
         // --- 8. Specific Response Manipulation for "SCI" API Type ---
         // (assuming handle_sci_response is a private helper function)
-        if ($apiType == "SCI") {
-            $decodedResponse = $this->handle_sci_response($decodedResponse);
-        }
+       // if ($apiType == "SCI") {
+        ///    $decodedResponse = $this->handle_sci_response($decodedResponse);
+        //}
 
         // Success: Echo the final JSON response from the upstream API
-        echo json_encode($decodedResponse, JSON_UNESCAPED_UNICODE);
+        //echo json_encode($decodedResponse, JSON_UNESCAPED_UNICODE);
 
     } catch (Exception $e) {
         // Catch all exceptions and format the final error response
@@ -189,133 +187,20 @@ class Nic__Controller extends CI_Controller {
     
                 return $decodedResponse;
             }
-	public function normalizeMessage($msg) {
-    if (empty($msg)) {
-        return "Message Is Empty";
-    }
-
-    // If message is array → convert to string
-    if (is_array($msg)) {
-        return implode(", ", $msg);
-    }
-
-    // If message is string
-    return $msg;
-}
-    public function New_Api_PPI(){
-    	   try {
-                // Fetch serial key data
-                $toVerifySerial = $this->Nic__CURD->DB_Api_Verify_Serial_Key(
-                    $this->uri->segment(3),
-                    $this->uri->segment(4)
-                );
-        
-                // Check if serial key verification failed or returned no data
-                if (empty($toVerifySerial) || !isset($toVerifySerial[0])) {
-                    throw new Exception("Authorization Failed! Invalid Parameter ..System Error..!", 404);
-                }
-        
-                $sathiStatus = $toVerifySerial[0]->DB_Cust__SathiCurrentStatus;
-                $amcExpired  = $toVerifySerial[0]->DB_Cust__AMCExpired;
-        
-                // Check for subscription status (AMC expired but status is Live/Demo)
-                if (($sathiStatus != "Live" || $sathiStatus != "Demo") && $amcExpired != "1") {
-                    $message = ($sathiStatus != "Live")
-                        ? "Your AMC validity has expired...! Please contact your partner or administrator."
-                        : "Your Demo period validity has expired...! Please contact your partner or administrator.";
-        
-                    $this->output_error(404, "Error", $message);
-                    return;
-                }
-        
-                // --- 2. Secondary Key Verification ---
-                $custNo   = $toVerifySerial[0]->DB_Cust__Id;
-                $DBApiKey = $toVerifySerial[0]->DBApiKey;
-                $toverify = $this->Nic__CURD->DB_Api_Verify_Key(
-                    $this->uri->segment(2),
-                    $custNo,
-                    $DBApiKey
-                );
-        
-                if (empty($toverify)) {
-                    // Note: The original logic falls into the generic "Authorization Failed" if $toverify is empty
-                    throw new Exception("Authorization Failed! Invalid Parameter ..System Error..!", 404);
-                }
-        
-                // --- 3. Log API Call Details ---
-                $data_to_Stored = [
-                    "DB__Api__Key"      => $this->uri->segment(2),
-                    "DB__Api__SerialKey" => $this->uri->segment(3),
-                    "DB_Cust__LicNo"    => $this->uri->segment(4),
-                    "Current__Date"     => date('Y-m-d H:i:s'),
-                    "DB__Api__VT"       => $this->uri->segment(5),
-                    "Api_Details_Status" => 1
-                ];
-        
-                if (!$this->Nic__CURD->DB_Api_DataToDB($data_to_Stored)) {
-                    throw new Exception("System Error.. Please Try Again...!", 404);
-                }
-        
-                // --- 4. Process Input Data for Upstream API ---
-                $jsonInput = $this->input->get('_dataToJson');
-                $apiKey = $toVerifySerial[0]->DB_ApiKey;
-                $jsonInput = (string)$jsonInput;
-        
-                // Data cleaning operations from original code
-                $jsonInput = urldecode($jsonInput);
-                if (substr($jsonInput, 0, 1) === '"' && substr($jsonInput, -1) === '"') {
-                    $jsonInput = substr($jsonInput, 1, -1);
-                }
-                $jsonInput = stripslashes($jsonInput);
-                $jsonInput = preg_replace('/[[:^print:]]/', '', $jsonInput);
-                $jsonInput = str_replace("'", '"', $jsonInput);
-                $jsonInput = trim($jsonInput);
-        
-                // Remove trailing RESPONCE:
-                $pos = strpos($jsonInput, 'RESPONCE:');
-                if ($pos !== false) {
-                    $jsonInput = trim(substr($jsonInput, 0, $pos));
-                }
-        
-                // Attempt to decode the JSON input
-                $dataArray = json_decode($jsonInput, TRUE, 512, JSON_INVALID_UTF8_IGNORE);
-        
-                if ($dataArray === null && json_last_error() !== JSON_ERROR_NONE) {
-                    $error_code = json_last_error();
-                    $error_msg  = json_last_error_msg();
-                    throw new Exception("JSON Decode Failed (Code: $error_code): $error_msg. Final Input check: " . substr($jsonInput, 0, 100) . "...", 400);
-                }
-        
-                // Merge API Key into the payload
-                $newPayload = array_merge(["apiKey" => $apiKey], $dataArray);
-                $finalJson = json_encode($newPayload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-        
-                // --- 5. Upstream API Call (cURL) ---
-                $url_Data = "demo.seedtrace.nic.in/inv-apis/billing/getOrderDetailsByBuyerCode";
-        
-                if (empty($url_Data)) {
-                    throw new Exception("Url Data incomplete.. Please Try Again...!", 404);
-                }
-        
-                $response = $this->execute_curl($url_Data, $finalJson);
-        
-                // --- 6. Process Upstream Response ---
-                $decodedResponse = json_decode($response, true);
-        
-                if ($decodedResponse === null && json_last_error() !== JSON_ERROR_NONE) {
-                    $err = json_last_error_msg();
-                    log_message('error', "[TALLY_API] JSON decode failed for upstream response: $err | raw len: ".strlen($response));
-                    throw new Exception("Invalid upstream JSON: $err", 500);
-                }
-        
-                // Success: Echo the final JSON response from the upstream API
-                echo json_encode($decodedResponse, JSON_UNESCAPED_UNICODE);
-    
-        } catch (Exception $e) {
-                // Catch all exceptions and format the final error response
-                $this->output_error($e->getCode(), "Error", $e->getMessage());
+	private function normalizeMessage($msg) {
+        if (empty($msg)) {
+            return "Message Is Empty";
         }
+
+        // If message is array → convert to string
+        if (is_array($msg)) {
+            return implode(", ", $msg);
+        }
+
+        // If message is string
+        return $msg;
     }
+    
     private function execute_curl($url, $post_fields)
         {
                     $ch = curl_init();
