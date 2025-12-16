@@ -42,9 +42,7 @@ class Nic__Controller extends CI_Controller {
             $this->uri->segment(3), // SerialKey
             $this->uri->segment(4)  // LicNo
         );
-echo $this->uri->segment(3);
-			  echo  $this->uri->segment(4);
-			  die();
+
         // Check if serial key verification failed or returned no data
         if (empty($toVerifySerial) || !isset($toVerifySerial[0])) {
             throw new Exception("Authorization Failed! Invalid Parameter ..System Error..!", 404);
