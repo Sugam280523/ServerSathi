@@ -199,11 +199,11 @@ $route['CustomerRevisitTable/(:num)']='Customer__Controller/Customer__Revisit__T
 
 //********************************************Portal API calling******************************************//
 //$route['dataKrushiSeed/(:any)/(:num)/(:any)']='Nic__Controller/process_krushi_data';
-$route['datatoKrushiseeds/(:any)/(:num)/(:any)']='Nic__Controller/process_krushi_data';
+//$route['datatoKrushiseeds/(:any)/(:num)/(:any)']='Nic__Controller/process_krushi_data';
 $route['DataToKrushiSeed/(:any)/(:num)/(:any)/(:any)']='Nic__Controller';
-$route['DataToKrushiSeedTo/(:any)/(:num)/(:any)/(:any)']='Nic__Controller/New_Api_Checkup';
+//$route['DataToKrushiSeedTo/(:any)/(:num)/(:any)/(:any)']='Nic__Controller/New_Api_Checkup';
 //pending Purchase API
-$route['DataToKrushiSeedToPPI/(:any)/(:num)/(:any)/(:any)']='Nic__Controller/New_Api_PPI';
+//$route['DataToKrushiSeedToPPI/(:any)/(:num)/(:any)/(:any)']='Nic__Controller/New_Api_PPI';
 
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
