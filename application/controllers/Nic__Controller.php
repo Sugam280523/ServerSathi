@@ -48,19 +48,7 @@ class Nic__Controller extends CI_Controller {
             throw new Exception("Authorization Failed! Invalid Parameter ..System Error..!", 404);
         }
 
-        // --- REMOVED: AMC/Demo Status and Expiry Check (Step 1 end) ---
-
-        // --- REMOVED: Secondary Key Verification (Step 2) ---
-        // $custNo   = $toVerifySerial[0]->DB_Cust__Id;
-        // $DBApiKey = $toVerifySerial[0]->DBApiKey;
-        // ... DB_Api_Verify_Key logic removed ...
-
-        // --- REMOVED: Log API Call Details (Step 3) ---
-        // $data_to_Stored = [...]
-        // if (!$this->Nic__CURD->DB_Api_DataToDB($data_to_Stored)) { ... }
-
-
-        // --- 4. Process Input Data for Upstream API ---
+        
         $jsonInput = $this->input->get('_dataToJson');
         $apiKey    = $toVerifySerial[0]->DB_ApiKey;
         $jsonInput = (string)$jsonInput;
@@ -82,37 +70,31 @@ class Nic__Controller extends CI_Controller {
         $newPayload = array_merge(["apiKey" => $apiKey], $dataArray);
         $finalJson = json_encode($newPayload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
-        // --- 5. Determine Upstream URL (assuming determine_url is a private helper function) ---
-        $url_Data = $this->api_handler->determine_url($apiType);
-
-        if (empty($url_Data)) {
-            throw new Exception("Url Data incomplete.. Please Try Again...!", 404);
-        }
-
         $job_id = $this->Queue_model->insert_job($apiType, $finalJson);
 
-       echo json_encode([
-            "statusCode" => "202", // HTTP 202 Accepted
-            "Status"     => "Accepted",
-            "Message"    => "Job successfully queued for processing.",
-            "QueueID"    => $job_id
-        ]);
-        // Stop execution to send the fast response
-        return;
-        // --- 8. Specific Response Manipulation for "SCI" API Type ---
-        // (assuming handle_sci_response is a private helper function)
-       // if ($apiType == "SCI") {
-        ///    $decodedResponse = $this->handle_sci_response($decodedResponse);
-        //}
+       if (!$job_id) {
+                throw new Exception("Server Busy: Could not queue request.", 503);
+            }
 
-        // Success: Echo the final JSON response from the upstream API
-        //echo json_encode($decodedResponse, JSON_UNESCAPED_UNICODE);
+            // 5. IMMEDIATE RESPONSE to Tally
+            // Tally receives this in milliseconds, freeing your server to handle the next request
+            echo json_encode([
+                "statusCode" => 202, 
+                "status"     => "Success",
+                "message"    => "Job successfully queued for processing.",
+                "data"       => [
+                    [
+                        "statusCode" => 202,
+                        "status"     => "Accepted",
+                        "queueID"    => $job_id
+                    ]
+                ]
+            ], JSON_UNESCAPED_UNICODE);
 
-    } catch (Exception $e) {
-        // Catch all exceptions and format the final error response
-        // (assuming output_error is a private helper function)
-        $this->output_error($e->getCode(), "Error", $e->getMessage());
-    }
+        } catch (Exception $e) {
+            // Format error using your specific nested JSON structure
+            $this->output_error($e->getCode() ? $e->getCode() : 500, "Error", $e->getMessage());
+        }
     }
     private function clean_json_input($jsonInput)
         {
@@ -132,74 +114,26 @@ class Nic__Controller extends CI_Controller {
             }
             return $jsonInput;
         }
-                
-        private function handle_sci_response(array $decodedResponse){
-  
-                    // Check if the main data key exists
-                if (isset($decodedResponse['data'])) {
-                    
-                    $statusFields = [
-                        "statusCode" => $decodedResponse["statusCode"] ?? "",
-                        "status"     => $decodedResponse["status"] ?? "",
-                        "message"    => $this->normalizeMessage($decodedResponse["message"] ?? "Message Is Empty")
-                    ];
-            
-                    // Case 1: 'data' is an array with at least one element (Your original logic)
-                    if (is_array($decodedResponse['data']) && isset($decodedResponse['data'][0])) {
-                        // Merge status fields into the first data item
-                        $decodedResponse['data'][0] = array_merge($statusFields, $decodedResponse['data'][0]);
-                        
-                    // Case 2: 'data' is an object (or non-empty associative array) 
-                    } elseif (is_array($decodedResponse['data']) && !empty($decodedResponse['data']) && !isset($decodedResponse['data'][0])) {
-                        // Merge status fields into the 'data' object itself
-                        // This handles your example response structure
-                        $decodedResponse['data'] = array_merge($statusFields, $decodedResponse['data']);
-            
-                    // Case 3: 'data' is an empty array or an empty object.
-                    } elseif (is_array($decodedResponse['data']) && empty($decodedResponse['data'])) {
-                        // If data array is empty, create a new data item with status/error info
-                        $decRespError = $decodedResponse["error"] ?? "";
-                        $statusFields["status"] = $statusFields["status"] ?: $decRespError; // Use error if status is empty
-                        $decodedResponse['data'][] = $statusFields;
-                    
-                    // Case 4: 'data' is present but is not an array (e.g., null, string, number - handle defensively)
-                    // If you only expect arrays or objects, you might want to log this as an error.
-                    } else {
-                         // If 'data' is present but doesn't fit the expected structure,
-                         // you could wrap it or just return the original response.
-                    }
-                }
-    
-                return $decodedResponse;
-            }
-	private function normalizeMessage($msg) {
-        if (empty($msg)) {
-            return "Message Is Empty";
-        }
-
-        // If message is array → convert to string
-        if (is_array($msg)) {
-            return implode(", ", $msg);
-        }
-
-        // If message is string
-        return $msg;
-    }
-    
+          
     
         private function output_error($statusCode, $status, $message)
-        {
-            $results = [
-                "statusCodec" => $statusCode,
-                "Status"      => $status,
-                "Message"     => $message,
-                "Data"        => ''
-            ];
-        
-            // Assuming you are in a CodeIgniter environment, set the appropriate status header
-            // http_response_code($statusCode); // Uncomment if using PHP 5.4+ and not relying on CI output class
-        
-            echo json_encode($results, JSON_UNESCAPED_UNICODE);
-        }
+            {
+                $results = [
+                    "statusCode" => $statusCode,
+                    "status"     => $status,
+                    "message"    => $message,
+                    "data"       => [
+                        [
+                            "statusCode" => $statusCode,
+                            "status"     => $status,
+                            "message"    => $message
+                        ]
+                    ]
+                ];
+
+                header('Content-Type: application/json');
+                echo json_encode($results, JSON_UNESCAPED_UNICODE);
+                exit; // Stop execution
+            }
 	
 }

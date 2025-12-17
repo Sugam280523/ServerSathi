@@ -28,21 +28,45 @@ class Worker extends CI_Controller {
             return;
         }
 
-        foreach ($jobs as $job) {
-            $url = $this->api_handler->determine_url($job->api_type);
-            $result = $this->api_handler->execute_curl($url, $job->payload);
+       foreach ($jobs as $job) {
+                $url = $this->api_handler->determine_url($job->api_type);
+                $result = $this->api_handler->execute_curl($url, $job->payload);
 
-            // result['response'] is the string we want to save
-            $responseString = is_array($result['response']) ? json_encode($result['response']) : $result['response'];
+                // 1. Decode the actual response from the external server
+                $apiResponseData = json_decode($result['response'], true);
 
-            if ($result['http_code'] == 200) {
-                $this->Queue_model->update_status($job->id, 'Success', $responseString);
-            } else {
-                $this->Queue_model->update_status($job->id, 'Failed', "HTTP Error: " . $result['http_code']);
+                // 2. Prepare the NESTED format with the real data
+                $formattedOutput = [
+                    "statusCode" => $result['http_code'],
+                    "status"     => ($result['http_code'] == 200) ? "Success" : "Failure",
+                    "message"    => ($result['http_code'] == 200) ? "Lot details fetched and updated successfully" : "API Error",
+                    "data"       => [
+                        [
+                            "statusCode" => $result['http_code'],
+                            "status"     => ($result['http_code'] == 200) ? "Success" : "Failure",
+                            "message"    => ($result['http_code'] == 200) ? "Lot details fetched and updated successfully" : "Error occurred",
+                            // 3. This puts the actual external API response inside your log
+                            "external_data" => $apiResponseData 
+                        ]
+                    ]
+                ];
+
+                // Convert to string using JSON_UNESCAPED_UNICODE for Tally compatibility
+                $finalLog = json_encode($formattedOutput, JSON_UNESCAPED_UNICODE);
+
+                // 4. Update Database
+                if ($result['http_code'] == 200) {
+                    $this->Queue_model->update_status($job->id, 'Success', $finalLog);
+                } else {
+                    $this->Queue_model->update_status($job->id, 'Failed', $finalLog);
+                }
+
+                // Rate limit for 500/sec (2ms delay)
+                usleep(2000); 
             }
-
-            usleep(2000); 
-        }
-        log_message('info', 'Worker: Batch completed. Jobs processed: ' . count($jobs));
+    }
+    public function cleanup() {
+    // Change 2 to 0 just for a 1-minute test
+        $rows = $this->Queue_model->purge_old_records(0); 
     }
 }

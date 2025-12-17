@@ -82,4 +82,11 @@ class Queue_model extends CI_Model {
     $this->db->where('id', $job_id);
     return $this->db->update('tbl_api_queue', $update_data);
 }
+public function purge_old_records($days = 2) {
+    $this->db->where('status', 'Success');
+    $this->db->where('created_at <', date('Y-m-d H:i:s', strtotime("-$days days")));
+    $this->db->delete('tbl_api_queue');
+    
+    return $this->db->affected_rows();
+}
 }
