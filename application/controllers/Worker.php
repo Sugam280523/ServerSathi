@@ -29,30 +29,19 @@ class Worker extends CI_Controller {
         }
 
         foreach ($jobs as $job) {
-            
-            // Check if we are close to the time limit
-            if ((microtime(true) - $start_time) > $max_run_time) {
-                log_message('warning', 'Worker: Stopping batch due to time limit.');
-                break; // Stop processing and wait for the next Cron run
+            $url = $this->api_handler->determine_url($job->api_type);
+            $result = $this->api_handler->execute_curl($url, $job->payload);
+
+            // result['response'] is the string we want to save
+            $responseString = is_array($result['response']) ? json_encode($result['response']) : $result['response'];
+
+            if ($result['http_code'] == 200) {
+                $this->Queue_model->update_status($job->id, 'Success', $responseString);
+            } else {
+                $this->Queue_model->update_status($job->id, 'Failed', "HTTP Error: " . $result['http_code']);
             }
 
-            // --- 1. Prepare and Execute ---
-            $url = $this->api_handler->determine_url($job->api_type); // Get URL via Nic_Controller method
-            
-            try {
-                // Use the existing, now internal, CURL function
-                $response = $this->api_handler->execute_curl($url, $job->payload);
-                
-                // --- 2. Success ---
-                $this->Queue_model->update_status($job->id, 'Success', $response);
-                
-            } catch (\Exception $e) {
-                // --- 3. Failure ---
-                $this->Queue_model->update_status($job->id, 'Failed', $e->getMessage());
-            }
-
-            // --- 4. RATE LIMITER ---
-            usleep($rate_limit_us); // Pause execution to maintain the 500/sec rate
+            usleep(2000); 
         }
         log_message('info', 'Worker: Batch completed. Jobs processed: ' . count($jobs));
     }

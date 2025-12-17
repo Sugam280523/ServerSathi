@@ -68,33 +68,18 @@ class Queue_model extends CI_Model {
      * @return bool
      */
     public function update_status($job_id, $new_status, $log) {
-        $update_data = [
-            'response_log' => $log,
-            'processed_at' => date('Y-m-d H:i:s') // Set processed time on final status
-        ];
-
-        // Determine next status and update attempts
-        if ($new_status === 'Success') {
-            $update_data['status'] = 'Success';
-        } else {
-            // Failure logic: Increment attempt count first
-            $this->db->set('attempts', 'attempts + 1', FALSE);
-            
-            $current_attempts = $this->db->select('attempts')->get_where($this->table, ['id' => $job_id])->row()->attempts;
-            
-            if ($current_attempts >= (self::MAX_WORKER_ATTEMPTS - 1)) {
-                // If this was the last attempt allowed
-                $update_data['status'] = 'Failed';
-                log_message('error', "Job ID {$job_id} permanently failed after {$current_attempts} attempts.");
-            } else {
-                // Set back to 'Pending' for the next Cron run to retry
-                $update_data['status'] = 'Pending';
-                $update_data['processed_at'] = NULL; // Clear processed time for retry
-                log_message('warning', "Job ID {$job_id} failed, retrying. Attempt: {$current_attempts} of ".self::MAX_WORKER_ATTEMPTS);
-            }
-        }
-        
-        $this->db->where('id', $job_id);
-        return $this->db->update($this->table, $update_data);
+    // Force $log to be a string if it is an array or object
+    if (is_array($log) || is_object($log)) {
+        $log = json_encode($log);
     }
+
+    $update_data = [
+        'response_log' => $log,
+        'processed_at' => date('Y-m-d H:i:s'),
+        'status'       => $new_status
+    ];
+
+    $this->db->where('id', $job_id);
+    return $this->db->update('tbl_api_queue', $update_data);
+}
 }
