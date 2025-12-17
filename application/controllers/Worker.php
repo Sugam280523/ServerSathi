@@ -7,9 +7,9 @@ class Worker extends CI_Controller {
     public function __construct() {
         parent::__construct();
         // Check if running from CLI
-        if ( ! $this->input->is_cli_request()) {
-            exit('No direct script access allowed');
-        }
+       // if ( ! $this->input->is_cli_request()) {
+         //   exit('No direct script access allowed');
+       // }
         $this->load->model('Queue_model');
         // You will need to load Nic_Controller temporarily to access determine_url() and execute_curl()
         $this->load->library('Nic_Controller', null, 'nic_controller'); 
