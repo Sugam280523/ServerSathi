@@ -76,26 +76,56 @@ class Nic__Controller extends CI_Controller {
                 throw new Exception("Server Busy: Could not queue request.", 503);
             }
 
-            // 5. IMMEDIATE RESPONSE to Tally
-            // Tally receives this in milliseconds, freeing your server to handle the next request
-            echo json_encode([
-                "statusCode" => 202, 
-                "status"     => "Success",
-                "message"    => "Job successfully queued for processing.",
-                "data"       => [
-                    [
-                        "statusCode" => 202,
-                        "status"     => "Accepted",
-                        "queueID"    => $job_id
+           // 4. THE BRIDGE: Wait for the Worker to process the job
+            $max_wait = 10; // Maximum seconds to stay connected
+            $elapsed  = 0;
+            $finalData = null;
+
+            while ($elapsed < $max_wait) {
+                // Check if worker has updated the row to 'Success'
+                $this->db->reconnect(); // Refresh DB connection
+                $job = $this->db->select('status, response_log')
+                                ->where('id', $job_id)
+                                ->get('tbl_api_queue')
+                                ->row();
+
+                if ($job && $job->status === 'Success') {
+                    $finalData = $job->response_log;
+                    break; // Stop waiting, we have the data!
+                }
+
+                // Wait 500ms before checking again
+                usleep(500000); 
+                $elapsed += 0.5;
+            }
+
+            // 5. Return Response to Tally
+            if ($finalData) {
+                // Return the REAL data fetched by the worker
+                header('Content-Type: application/json');
+                echo $finalData; 
+            } else {
+                // If the worker is too slow (Timeout), return the QueueID so Tally knows it's pending
+                echo json_encode([
+                    "statusCode" => 202, 
+                    "status"     => "Success",
+                    "message"    => "Job queued but external API is slow. Use QueueID to check later.",
+                    "data"       => [
+                        [
+                            "statusCode" => 202,
+                            "status"     => "Accepted",
+                            "queueID"    => $job_id
+                        ]
                     ]
-                ]
-            ], JSON_UNESCAPED_UNICODE);
+                ], JSON_UNESCAPED_UNICODE);
+            }
 
         } catch (Exception $e) {
             // Format error using your specific nested JSON structure
             $this->output_error($e->getCode() ? $e->getCode() : 500, "Error", $e->getMessage());
         }
     }
+    
     private function clean_json_input($jsonInput)
         {
             $jsonInput = urldecode($jsonInput);
