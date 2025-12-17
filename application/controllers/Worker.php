@@ -10,16 +10,20 @@ class Worker extends CI_Controller {
        // if ( ! $this->input->is_cli_request()) {
          //   exit('No direct script access allowed');
        // }
-        // Use APPPATH to avoid manual path errors
-                $path = APPPATH . 'controllers/Nic_Controller.php';
+        
+               // FCPATH points to the root 'Demo' folder where index.php is
+                $path = FCPATH . 'application/controllers/Nic_Controller.php';
+
+                // Log the path to your CI logs so you can see exactly where it is looking
+                log_message('debug', "Checking for file at: " . $path);
 
                 if (file_exists($path)) {
                     require_once($path);
                     $this->nic_controller = new Nic_Controller();
                 } else {
-                    log_message('error', "Worker Error: Nic_Controller.php not found at $path");
-                    show_error("Internal Worker Error: Controller file missing.");
-                } 
+                    // This will now show you the ACTUAL path in the error message to help us debug
+                    show_error("Internal Worker Error: File missing at " . $path);
+                }
     }
 
     // This method will be executed by the Cron Job
