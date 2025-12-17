@@ -114,7 +114,7 @@ class Nic__Controller extends CI_Controller {
                         [
                             "statusCode" => 202,
                             "status"     => "Accepted",
-                            "queueID"    => $job_id
+                            "queueID"    => $job_id ."/".$job
                         ]
                     ]
                 ], JSON_UNESCAPED_UNICODE);
