@@ -37,11 +37,11 @@ class Worker extends CI_Controller {
             }
 
             // --- 1. Prepare and Execute ---
-            $url = $this->nic_controller->determine_url($job->api_type); // Get URL via Nic_Controller method
+            $url = $this->api_handler->determine_url($job->api_type); // Get URL via Nic_Controller method
             
             try {
                 // Use the existing, now internal, CURL function
-                $response = $this->nic_controller->execute_curl($url, $job->payload);
+                $response = $this->api_handler->execute_curl($url, $job->payload);
                 
                 // --- 2. Success ---
                 $this->Queue_model->update_status($job->id, 'Success', $response);
