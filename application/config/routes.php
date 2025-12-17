@@ -204,6 +204,6 @@ $route['DataToKrushiSeed/(:any)/(:num)/(:any)/(:any)']='Nic__Controller';
 //$route['DataToKrushiSeedTo/(:any)/(:num)/(:any)/(:any)']='Nic__Controller/New_Api_Checkup';
 //pending Purchase API
 //$route['DataToKrushiSeedToPPI/(:any)/(:num)/(:any)/(:any)']='Nic__Controller/New_Api_PPI';
-
+$route['ProcessBatch']='Worker/process_batch';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
