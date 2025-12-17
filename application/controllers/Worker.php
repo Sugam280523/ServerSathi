@@ -10,9 +10,10 @@ class Worker extends CI_Controller {
        // if ( ! $this->input->is_cli_request()) {
          //   exit('No direct script access allowed');
        // }
-        $this->load->model('Queue_model');
-        // You will need to load Nic_Controller temporarily to access determine_url() and execute_curl()
-        $this->load->library('Nic_Controller', null, 'nic_controller'); 
+        require_once(APPPATH . 'controllers/Nic_Controller.php');
+
+        // 2. Instantiate it manually (since CI cannot 'load' a controller as a library)
+        $this->nic_controller = new Nic_Controller(); 
     }
 
     // This method will be executed by the Cron Job
