@@ -83,7 +83,7 @@ class Nic__Controller extends CI_Controller {
         $finalJson = json_encode($newPayload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
         // --- 5. Determine Upstream URL (assuming determine_url is a private helper function) ---
-        $url_Data = $this->determine_url($apiType);
+        $url_Data = $this->api_handler->determine_url($apiType);
 
         if (empty($url_Data)) {
             throw new Exception("Url Data incomplete.. Please Try Again...!", 404);
